@@ -12,12 +12,22 @@ import           Types
 import           Order.PureOperations
 
 
-insertOrder :: Id -> OrderType -> UTCTime -> BTC -> USD -> Update Orders Order
-insertOrder uid ot t btc usd = do
+insertOrder :: UTCTime -> Id -> OrderType -> UTCTime -> BTC -> USD -> Update Orders Order
+insertOrder now uid ot t btc usd = do
+    invalidateExpiredOrders now
     orders <- get
-    let (order, orders') = insertNewOrder uid ot t btc usd orders
+    let (order, orders') = pureInsertOrder uid ot t btc usd orders
     put orders'
     return order
+
+
+invalidateExpiredOrders :: UTCTime -> Update Orders ()
+invalidateExpiredOrders now = do
+    orders <- get
+    put $ pureExpireOrders now orders
+    return ()
+
+
 --
 --
 --updateOrderWithSellerAddress :: Address -> OrderStatus -> Update Orders (Maybe Order)
@@ -49,6 +59,6 @@ peekOrders = ask
 --                         }
 --
 --
-$(makeAcidic ''Orders ['peekOrders, 'insertOrder])
+$(makeAcidic ''Orders ['peekOrders, 'insertOrder, 'invalidateExpiredOrders])
 
 

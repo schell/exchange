@@ -8,8 +8,9 @@ import           Data.SafeCopy
 import           Data.Data
 import           Data.Aeson hiding (json)
 import           Data.Time.Clock
-import qualified Data.Text as T
 import           Types.Types
+import qualified Data.Text as T
+import qualified Data.Set as S
 
 
 type USD = Double
@@ -62,38 +63,28 @@ instance ToJSON Order where
                                   ]
 
 
-data LedgerNeedsFunding = LedgerNeedsFunding [Order] deriving (Show, Eq, Ord, Typeable)
-$(deriveSafeCopy 0 'base ''LedgerNeedsFunding)
-
-data LedgerNeedsMatch = LedgerNeedsMatch [Order] deriving (Show, Eq, Ord, Typeable)
-$(deriveSafeCopy 0 'base ''LedgerNeedsMatch)
-
-data LedgerSuccessful = LedgerSuccessful [Order] deriving (Show, Eq, Ord, Typeable)
-$(deriveSafeCopy 0 'base ''LedgerSuccessful)
-
-data LedgerFailure = LedgerFailure [Order] deriving (Show, Eq, Ord, Typeable)
-$(deriveSafeCopy 0 'base ''LedgerFailure)
+type OrderCollection = S.Set Order
 
 
-data Ledger = Ledger { _needsFunding :: LedgerNeedsFunding
-                     , _needsMatch   :: LedgerNeedsMatch
-                     , _successful   :: LedgerSuccessful
-                     , _failure      :: LedgerFailure
+data Ledger = Ledger { _needsFunding :: OrderCollection
+                     , _needsMatch   :: OrderCollection
+                     , _expired      :: OrderCollection
+                     , _cancelled    :: OrderCollection
                      } deriving (Show, Eq, Ord, Typeable)
 $(deriveSafeCopy 0 'base ''Ledger)
 
 
 instance ToJSON Ledger where
-    toJSON (Ledger (LedgerNeedsFunding fs) (LedgerNeedsMatch ms) (LedgerSuccessful ss) (LedgerFailure xs)) =
+    toJSON (Ledger fs ms ss xs) =
         object [ "needsFunding" .= fs
                , "needsMatch" .= ms
-               , "success" .= ss
-               , "failure" .= xs
+               , "expired" .= ss
+               , "cancelled" .= xs
                ]
 
 
 initialLedger :: Ledger
-initialLedger = Ledger (LedgerNeedsFunding []) (LedgerNeedsMatch []) (LedgerSuccessful []) (LedgerFailure [])
+initialLedger = Ledger S.empty S.empty S.empty S.empty
 
 
 data Orders = Orders { _buyOrders   :: Ledger

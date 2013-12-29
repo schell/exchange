@@ -58,7 +58,8 @@ $(deriveSafeCopy 0 'base ''Users)
 
 initialUsers :: Users
 initialUsers = Users { _usersNextId = 1
-                     , _usersMap = M.insert (Id 0) defaultAdmin M.empty
+                     , _usersMap = foldl (\m u -> M.insert (_userId u) u m) M.empty $
+                         defaultAdmin : defaultUsers
                      }
 
 
@@ -70,6 +71,24 @@ defaultAdmin = User { _userId = Id 0
                     , _userSalt = "$2y$14$ycGDchE4ofOly/aBZVmTHO"
                     , _userLastLogin = zeroDay
                     }
+
+
+defaultUsers :: [User]
+defaultUsers = [ User { _userId = Id 1
+                      , _userName = "john"
+                      , _userEmail = "john.doe@mailinator.com"
+                      , _userPassword = "$2y$14$J2t6RJAWFgvROu//xAzj6Orqesfy9pwuQ2xIjoMWL5jBblJUYTvhy"
+                      , _userSalt = "$2y$14$2aOVN/UZpBbs.t0lz/EA0."
+                      , _userLastLogin = zeroDay
+                      }
+               , User { _userId = Id 2
+                      , _userName = "bob"
+                      , _userEmail = "bobby.doe@mailinator.com"
+                      , _userPassword = "$2y$14$ZqOfdZ6OrI4yW9jRgl2wVek2yYgNkwWLjGTJDmphhqvFyeRB9UYZ."
+                      , _userSalt = "$2y$14$Rhr/HeUSy7vGRFrfh/hW.O"
+                      , _userLastLogin = zeroDay
+                      }
+               ]
 
 
 zeroDay :: UTCTime

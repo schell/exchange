@@ -9,7 +9,6 @@ import           Data.Acid
 import           Data.Acid.Local
 import           Types
 import           Routes
-import           DB
 
 
 main :: IO ()
@@ -22,9 +21,8 @@ main = do
 
     bracket (openLocalState initialUsers)
             createCheckpointAndClose
-            (\acid -> bracket (openLocalState initialOrders)
-                              createCheckpointAndClose
-                              (startScotty auth acid))
+            (bracket (openLocalState initialOrders) createCheckpointAndClose .
+              startScotty auth)
 
 startScotty :: Auth -> AcidState Users -> AcidState Orders -> IO ()
 startScotty auth acidUsers acidOrders =
@@ -32,5 +30,7 @@ startScotty auth acidUsers acidOrders =
         userRoutes acidUsers
         btcRoutes auth
         orderRoutes acidOrders
+        errorRoutes
+        notFound $ redirect "error/404" 
 
 

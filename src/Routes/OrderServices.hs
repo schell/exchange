@@ -25,12 +25,14 @@ orderRoutes acid = do
 getOrders :: AcidState Orders -> ScottyM ()
 getOrders acid =
     get "/orders/:order" $ do
+        t <- liftIO getCurrentTime
+        update' acid $ InvalidateExpiredOrders t
         kind   <- param "order" :: ActionM T.Text
         orders <- query' acid PeekOrders
-        when (kind == "sell") $
-            json $ _sellOrders orders
-        when (kind == "buy") $
-            json $ _buyOrders orders
+        case kind of
+            "sell" -> json $ _sellOrders orders
+            "buy"  -> json $ _buyOrders orders
+            _      -> json $ statusErr $ kind `T.append` " is not a valid order type."
 
 
 putOrder :: AcidState Orders -> ScottyM ()
@@ -39,7 +41,7 @@ putOrder acid =
 
 
 getPutOrder :: AcidState Orders -> ScottyM ()
-getPutOrder acid = 
+getPutOrder acid =
     get addOrderRoute $ addOrderAction acid
 
 
@@ -65,7 +67,7 @@ addOrder acid order seconds btc usd
         t   <- liftIO getCurrentTime
         mId <- getUserId
         unless (isNothing mId) $ do
-            order' <- update' acid $ InsertOrder (fromJust mId) ot (addUTCTime seconds t) btc usd
+            order' <- update' acid $ InsertOrder t (fromJust mId) ot (addUTCTime seconds t) btc usd
             json order'
 
 

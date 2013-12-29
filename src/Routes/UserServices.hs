@@ -10,12 +10,10 @@ import           Data.Acid.Advanced
 import           Data.Time.Clock
 import           Data.Aeson hiding (json)
 import qualified Data.Text.Lazy as T
-import           Templates.Renderer
-import           Templates.Templates
 import           User.DB
 import           Session.Utils
 import           Types
-import           Templates.Wrapper
+import           Templates
 
 
 userRoutes :: AcidState Users -> ScottyM ()
@@ -29,7 +27,7 @@ userRoutes acid = do
 
 getIndex :: ScottyM ()
 getIndex =
-    get "/" $ blazePretty $ wrapper "Home" "Stuff" 
+    get "/" $ blazePretty $ wrapper "Home" "Stuff"
 
 
 getLogin :: ScottyM ()
@@ -62,6 +60,7 @@ postLogin acid =
 getSession :: ScottyM ()
 getSession =
     get "/session" $ do
+        authorizeAdmin
         mCookie <- readUserCookie
         unless (isNothing mCookie) $ do
             let c = fromJust mCookie

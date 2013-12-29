@@ -9,11 +9,11 @@ import           Web.ClientSession
 import           Crypto.BCrypt
 import           Data.Time.Clock
 import           Data.Aeson
+import           Types
 import qualified Data.Map as M
 import qualified Data.Text.Lazy as T
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as L
-import           User.Types
 
 
 type CookieMap = M.Map T.Text T.Text
@@ -44,7 +44,14 @@ authorize = do
     writeUserCookie c
 
 
-cookieHasExpired :: UserCookie -> ActionM Bool 
+authorizeAdmin :: ActionM ()
+authorizeAdmin = do
+    authorize
+    id' <- fmap fromJust getUserId
+    when (id' > Id 0) $ redirect "/error/403"
+
+
+cookieHasExpired :: UserCookie -> ActionM Bool
 cookieHasExpired c = do
     t <- liftIO getCurrentTime
     let d = diffUTCTime (_cookieExpires c) t
@@ -74,15 +81,15 @@ readUserCookie = do
     -- Retrieve and parse our cookies.
     mCookies <- reqHeader "Cookie"
     if isNothing mCookies then return Nothing else
-      -- Make sure we have our specific cookie. 
+      -- Make sure we have our specific cookie.
       let cookies = parseCookies $ fromJust mCookies
           mCookie = M.lookup cookieName cookies
-      in if isNothing mCookie then return Nothing else 
+      in if isNothing mCookie then return Nothing else
            -- Decrypt our cookie data.
            do k <- liftIO getDefaultKey
               let cookie = fromJust mCookie
                   mData  = decrypt k (B.pack $ T.unpack cookie)
-              if isNothing mData then return Nothing else 
+              if isNothing mData then return Nothing else
                 let datum = L.fromStrict $ fromJust mData
                 in return (decode datum :: Maybe UserCookie)
 
@@ -92,4 +99,11 @@ updateExpiryOnCookie c = do
     t <- getCurrentTime
     let t' = addUTCTime (10*60) t
     return c{_cookieExpires=t'}
+
+
+getUserId :: ActionM (Maybe Id)
+getUserId = do
+    mCookie <- readUserCookie
+    return $ if isNothing mCookie then Nothing else
+        Just $ _cookieUserId $ fromJust mCookie
 
