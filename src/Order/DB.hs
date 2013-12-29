@@ -12,9 +12,8 @@ import           Types
 import           Order.PureOperations
 
 
-insertOrder :: UTCTime -> Id -> OrderType -> UTCTime -> BTC -> USD -> Update Orders Order
-insertOrder now uid ot t btc usd = do
-    invalidateExpiredOrders now
+insertOrder :: Id -> OrderType -> UTCTime -> BTC -> USD -> Update Orders Order
+insertOrder uid ot t btc usd = do
     orders <- get
     let (order, orders') = pureInsertOrder uid ot t btc usd orders
     put orders'

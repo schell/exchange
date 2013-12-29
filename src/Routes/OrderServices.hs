@@ -67,7 +67,8 @@ addOrder acid order seconds btc usd
         t   <- liftIO getCurrentTime
         mId <- getUserId
         unless (isNothing mId) $ do
-            order' <- update' acid $ InsertOrder t (fromJust mId) ot (addUTCTime seconds t) btc usd
+            update' acid $ InvalidateExpiredOrders t
+            order' <- update' acid $ InsertOrder (fromJust mId) ot (addUTCTime seconds t) btc usd
             json order'
 
 
