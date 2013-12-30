@@ -8,7 +8,8 @@ import           Web.Scotty
 import           Web.ClientSession
 import           Crypto.BCrypt
 import           Data.Time.Clock
-import           Data.Aeson
+import           Network.HTTP.Types.Status
+import           Data.Aeson hiding (json)
 import           Types
 import qualified Data.Map as M
 import qualified Data.Text.Lazy as T
@@ -30,25 +31,38 @@ parseCookies = foldl mapify M.empty . map tuple . splitCookies
           mapify m (k,v) = M.insert k v m
 
 
+jsonErr :: Status -> ActionM ()
+jsonErr stat =
+    json $ object [ "status"  .= ("error" :: T.Text)
+                  , "code"    .= statusCode stat
+                  , "message" .= statusMessage stat
+                  ]
+
+
 authorize :: ActionM ()
 authorize = do
     mCookie <- readUserCookie
-    when (isNothing mCookie) $ redirect "/login"
-
-    -- Check the expiry.
-    let c = fromJust mCookie
-    invalidCookie <- cookieHasExpired c
-    when invalidCookie $ redirect "/login"
-
-    -- Update the cookie.
-    writeUserCookie c
+    if isNothing mCookie then jsonErr unauthorized401 else do
+        -- Check the expiry.
+        let c = fromJust mCookie
+        invalidCookie <- cookieHasExpired c
+        if invalidCookie then jsonErr unauthorized401 else
+            -- Update the cookie.
+            writeUserCookie c
 
 
-authorizeAdmin :: ActionM ()
-authorizeAdmin = do
+authorizeAdmin :: ActionM() -> ActionM ()
+authorizeAdmin f = do
     authorize
     id' <- fmap fromJust getUserId
-    when (id' > Id 0) $ redirect "/error/403"
+    if id' > Id 0 then jsonErr forbidden403 else f
+
+
+authorizeAndId :: (Id -> ActionM ()) -> ActionM ()
+authorizeAndId f = do
+    authorize
+    mUid <- getUserId
+    maybe (jsonErr forbidden403) f mUid
 
 
 cookieHasExpired :: UserCookie -> ActionM Bool

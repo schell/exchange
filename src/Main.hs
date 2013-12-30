@@ -27,10 +27,10 @@ main = do
 startScotty :: Auth -> AcidState Users -> AcidState Orders -> IO ()
 startScotty auth acidUsers acidOrders =
     scotty 18331 $ do
-        userRoutes acidUsers
+        userRoutes auth acidUsers
         btcRoutes auth
         orderRoutes acidOrders
         errorRoutes
-        notFound $ redirect "error/404" 
+        notFound $ redirect "/error/404"
 
 

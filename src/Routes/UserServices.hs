@@ -4,26 +4,30 @@ module Routes.UserServices where
 import           Control.Monad
 import           Control.Monad.IO.Class (liftIO)
 import           Web.Scotty
+import           Network.HTTP.Types.Status
 import           Data.Maybe
 import           Data.Acid
 import           Data.Acid.Advanced
 import           Data.Time.Clock
 import           Data.Aeson hiding (json)
+import qualified Network.Bitcoin as BTC
 import qualified Data.Text.Lazy as T
 import           User.DB
+import           User.PureOperations
 import           Session.Utils
 import           Types
 import           Templates
 
 
-userRoutes :: AcidState Users -> ScottyM ()
-userRoutes acid = do
+userRoutes :: Auth -> AcidState Users -> ScottyM ()
+userRoutes auth acid = do
     getIndex
     getLogin
     postLogin acid
     getSession
     getHome
-    getUser acid
+    getUser auth acid
+    getNewAddress auth acid
 
 getIndex :: ScottyM ()
 getIndex =
@@ -57,10 +61,10 @@ postLogin acid =
         update' acid $ UpdateUser $ u{_userLastLogin=t}
         redirect "/home"
 
+
 getSession :: ScottyM ()
 getSession =
-    get "/session" $ do
-        authorizeAdmin
+    get "/session" $ authorizeAdmin $ do
         mCookie <- readUserCookie
         unless (isNothing mCookie) $ do
             let c = fromJust mCookie
@@ -76,12 +80,29 @@ getHome =
         json $ object ["status" .= ("ok"::T.Text)]
 
 
-getUser :: AcidState (EventState PeekUserWithId) -> ScottyM ()
-getUser acid =
-    get "/user/:user" $ do
-        authorize
-        uid <- param "user"
-        mUser  <- query' acid $ PeekUserWithId $ Id uid
-        unless (isNothing mUser) $
-            json $ fromJust mUser
+ifAuthorizedPeekUser :: AcidState Users -> (User -> ActionM ()) -> ActionM ()
+ifAuthorizedPeekUser acid f =
+    authorizeAndId $ \uid -> do
+        mUser  <- query' acid $ PeekUserWithId uid
+        maybe (jsonErr forbidden403) f mUser
 
+
+getUser :: Auth -> AcidState (EventState PeekUserWithId) -> ScottyM ()
+getUser auth acid =
+    get "/account" $ ifAuthorizedPeekUser acid $ \user -> do
+        let account = userAccount user
+        bling <- liftIO $ BTC.getBalance' auth account
+        addys <- liftIO $ BTC.getAddressesByAccount auth account
+        json $ object [ "user" .= user
+                      , "balance" .= bling
+                      , "addresses" .= addys
+                      ]
+
+
+getNewAddress :: Auth -> AcidState Users -> ScottyM ()
+getNewAddress auth acid =
+    get "/newAddress" $ ifAuthorizedPeekUser acid $ \user -> do
+        addy <- liftIO $ BTC.getNewAddress auth (Just $ userAccount user)
+        json $ object [ "status"  .= ("ok" :: T.Text)
+                      , "address" .= addy
+                      ]

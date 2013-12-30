@@ -58,7 +58,6 @@ addOrderAction acid = do
     addOrder acid order (fromIntegral seconds) (realToFrac btc) usd
 
 
-
 addOrder :: AcidState Orders -> T.Text -> NominalDiffTime -> BTC -> USD -> ActionM ()
 addOrder acid order seconds btc usd
     | order /= "sell" && order /= "buy" = json $ statusErr $ order `T.append` " is not a valid order type."
@@ -70,8 +69,6 @@ addOrder acid order seconds btc usd
             update' acid $ InvalidateExpiredOrders t
             order' <- update' acid $ InsertOrder (fromJust mId) ot (addUTCTime seconds t) btc usd
             json order'
-
-
 
 
 --getBlockNotify acid =
